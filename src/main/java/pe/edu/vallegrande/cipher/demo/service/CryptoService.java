@@ -236,11 +236,19 @@ public class CryptoService {
                 byte[] corruptedMessage = encrypted.clone();
                 corruptedMessage[encrypted.length / 2] ^= 0xFF;
 
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParams);
-                byte[] decrypted = cipher.doFinal(corruptedMessage);
-                response.setDecryptedMessage(new String(decrypted));
-                response.setVulnerability("Error Simulado");
-                response.setExplanation("Byte corrupto en posición " + (encrypted.length / 2) + " causa propagación de error");
+                try {
+                    cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParams);
+                    byte[] decrypted = cipher.doFinal(corruptedMessage);
+                    response.setDecryptedMessage(new String(decrypted));
+                    response.setVulnerability("Error Simulado - Descifrado Exitoso");
+                    response.setExplanation("Sorprendentemente, el mensaje corrupto se descifró sin error aparente");
+                } catch (Exception decryptionError) {
+                    // Manejar el error de descifrado
+                    response.setDecryptedMessage("ERROR: No se pudo descifrar - " + decryptionError.getMessage());
+                    response.setVulnerability("Error de Padding/Descifrado");
+                    response.setExplanation("El byte corrupto en posición " + (encrypted.length / 2) +
+                            " causó un error de padding al intentar descifrar: " + decryptionError.getClass().getSimpleName());
+                }
             } else {
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParams);
                 byte[] decrypted = cipher.doFinal(encrypted);
@@ -253,7 +261,14 @@ public class CryptoService {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return null;
+
+            // Retornar una respuesta de error en lugar de null
+            MessageResponse errorResponse = new MessageResponse(request.getMessage(), null);
+            errorResponse.setDecryptedMessage("ERROR GENERAL: " + e.getMessage());
+            errorResponse.setVulnerability("Error de Cifrado");
+            errorResponse.setExplanation("Error durante el proceso de cifrado: " + e.getClass().getSimpleName());
+            return errorResponse;
         }
     }
+    
 }
